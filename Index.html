@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TipTracker Pro</title>
+    
+    <meta name="theme-color" content="#121212">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2534/2534183.png">
+
+    <link rel="manifest" href='data:application/manifest+json,{"name":"TipTracker Pro","short_name":"Tips","start_url":".","display":"standalone","background_color":"#121212","theme_color":"#4caf50","icons":[{"src":"https://cdn-icons-png.flaticon.com/512/2534/2534183.png","sizes":"512x512","type":"image/png"}]}'>
+
+    <style>
+        :root {
+            --bg: #121212;
+            --card: #1e1e1e;
+            --primary: #4caf50;
+            --danger: #f44336;
+            --text: #ffffff;
+            --text-dim: #b0b0b0;
+            --accent: #2196f3;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+            overscroll-behavior-y: contain;
+        }
+
+        .container { width: 100%; max-width: 400px; padding-bottom: 40px; }
+        h1 { text-align: center; color: var(--primary); margin-bottom: 30px; }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 25px;
+        }
+
+        .stat-card {
+            background: var(--card);
+            padding: 15px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            border: 1px solid #333;
+            transition: transform 0.2s;
+        }
+
+        .stat-card span { display: block; font-size: 0.85rem; color: var(--text-dim); margin-bottom: 5px; }
+        .stat-card strong { font-size: 1.3rem; color: var(--primary); }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); border-color: var(--primary); }
+            100% { transform: scale(1); }
+        }
+        .updated { animation: pulse 0.4s ease-out; }
+
+        .input-section {
+            background: var(--card);
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+        }
+
+        input {
+            width: 100%;
+            padding: 15px;
+            margin-bottom: 12px;
+            border-radius: 10px;
+            border: 2px solid #333;
+            background: #121212;
+            color: white;
+            font-size: 1.1rem;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        input:focus { border-color: var(--primary); }
+
+        .btn {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            margin-bottom: 10px;
+            transition: opacity 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn:active { opacity: 0.7; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-outline { background: transparent; border: 1px solid var(--text-dim); color: var(--text-dim); }
+        .btn-accent { background: transparent; border: 1px solid var(--accent); color: var(--accent); margin-top: 10px;}
+
+        .history { background: var(--card); border-radius: 15px; overflow: hidden; margin-top: 10px; }
+
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 1px solid #333;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .delete-btn {
+            background: none;
+            border: none;
+            color: var(--danger);
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 10px;
+        }
+
+        .date-label { font-size: 0.8rem; color: var(--text-dim); }
+        
+        #file-input { display: none; }
+        
+        .action-group { margin-top: 30px; display: flex; flex-direction: column; gap: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>TipTracker 💰</h1>
+
+    <div class="stats-grid">
+        <div class="stat-card" id="card-today">
+            <span>Heute</span>
+            <strong id="stat-today">0,00 €</strong>
+        </div>
+        <div class="stat-card" id="card-month">
+            <span>Dieser Monat</span>
+            <strong id="stat-month">0,00 €</strong>
+        </div>
+        <div class="stat-card" style="grid-column: span 2;">
+            <span>Gesamt (2026)</span>
+            <strong id="stat-year">0,00 €</strong>
+        </div>
+    </div>
+
+    <form class="input-section" onsubmit="event.preventDefault(); addTip();">
+        <input type="number" id="tip-input" placeholder="Betrag in €" step="0.01" inputmode="decimal" required>
+        <button type="submit" class="btn btn-primary">Eintragen</button>
+    </form>
+
+    <h3>Letzte 10 Einträge</h3>
+    <div id="history-list" class="history"></div>
+
+    <div class="action-group">
+        <button class="btn btn-outline" onclick="exportCSV()">📤 CSV Export (Backup)</button>
+        
+        <input type="file" id="file-input" accept=".csv" onchange="importCSV(this)">
+        <button class="btn btn-accent" onclick="document.getElementById('file-input').click()">📥 CSV Import (Restore)</button>
+    </div>
+</div>
+
+<script>
+    let tips = JSON.parse(localStorage.getItem('myTips')) || [];
+
+    function addTip() {
+        const input = document.getElementById('tip-input');
+        let val = input.value.replace(',', '.');
+        const amount = parseFloat(val);
+
+        if (isNaN(amount) || amount <= 0) {
+            alert("Bitte einen gültigen Betrag eingeben.");
+            return;
+        }
+
+        const entry = {
+            id: Date.now(),
+            amount: amount,
+            date: new Date().toISOString()
+        };
+
+        tips.unshift(entry);
+        if (navigator.vibrate) navigator.vibrate(40);
+        animateCard('card-today');
+        saveAndRender();
+        input.value = '';
+        input.blur(); 
+    }
+
+    function animateCard(id) {
+        const card = document.getElementById(id);
+        card.classList.remove('updated');
+        void card.offsetWidth; 
+        card.classList.add('updated');
+    }
+
+    function deleteTip(id) {
+        if(confirm("Eintrag wirklich löschen?")) {
+            tips = tips.filter(t => t.id !== id);
+            saveAndRender();
+        }
+    }
+
+    function exportCSV() {
+        if (tips.length === 0) return alert("Keine Daten zum Exportieren!");
+        let csvContent = "\uFEFFDatum;Uhrzeit;Betrag;ID\n";
+        tips.forEach(t => {
+            const d = new Date(t.date);
+            const date = d.toLocaleDateString('de-DE');
+            const time = d.toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'});
+            const amount = t.amount.toFixed(2).replace('.', ',');
+            csvContent += `${date};${time};${amount} €;${t.id}\n`;
+        });
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `Trinkgeld_Backup_${new Date().toLocaleDateString()}.csv`);
+        link.click();
+    }
+
+    function importCSV(input) {
+        const file = input.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const lines = e.target.result.split('\n');
+            let importCount = 0;
+            for (let i = 1; i < lines.length; i++) {
+                const cols = lines[i].split(';');
+                if (cols.length < 4) continue;
+                const dateStr = cols[0].split('.');
+                const timeStr = cols[1].split(':');
+                const amount = parseFloat(cols[2].replace(',', '.').replace(' €', ''));
+                const id = parseInt(cols[3]);
+                if (!tips.find(t => t.id === id)) {
+                    const d = new Date(dateStr[2], dateStr[1]-1, dateStr[0], timeStr[0], timeStr[1]);
+                    tips.push({id: id, amount: amount, date: d.toISOString()});
+                    importCount++;
+                }
+            }
+            tips.sort((a, b) => new Date(b.date) - new Date(a.date));
+            saveAndRender();
+            alert(`${importCount} neue Einträge importiert!`);
+            input.value = '';
+        };
+        reader.readAsText(file);
+    }
+
+    function saveAndRender() {
+        localStorage.setItem('myTips', JSON.stringify(tips));
+        render();
+    }
+
+    function render() {
+        const now = new Date();
+        const historyList = document.getElementById('history-list');
+        let todaySum = 0, monthSum = 0, yearSum = 0;
+        historyList.innerHTML = '';
+        tips.forEach(tip => {
+            const tipDate = new Date(tip.date);
+            if (tipDate.toDateString() === now.toDateString()) todaySum += tip.amount;
+            if (tipDate.getMonth() === now.getMonth() && tipDate.getFullYear() === now.getFullYear()) monthSum += tip.amount;
+            if (tipDate.getFullYear() === now.getFullYear()) yearSum += tip.amount;
+            if (historyList.children.length < 10) {
+                const div = document.createElement('div');
+                div.className = 'history-item';
+                div.innerHTML = `<div><div class="date-label">${tipDate.toLocaleDateString('de-DE', {day: '2-digit', month: '2-digit', hour: '2-digit', minute:'2-digit'})} Uhr</div><strong>${tip.amount.toFixed(2).replace('.', ',')} €</strong></div><button class="delete-btn" onclick="deleteTip(${tip.id})">✕</button>`;
+                historyList.appendChild(div);
+            }
+        });
+        if (tips.length === 0) historyList.innerHTML = '<div style="padding:20px; text-align:center; color:gray;">Keine Einträge</div>';
+        document.getElementById('stat-today').innerText = todaySum.toLocaleString('de-DE', {minimumFractionDigits: 2}) + ' €';
+        document.getElementById('stat-month').innerText = monthSum.toLocaleString('de-DE', {minimumFractionDigits: 2}) + ' €';
+        document.getElementById('stat-year').innerText = yearSum.toLocaleString('de-DE', {minimumFractionDigits: 2}) + ' €';
+    }
+
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            const swCode = `self.addEventListener('fetch', (event) => { event.respondWith(fetch(event.request).catch(() => caches.match(event.request))); });`;
+            const blob = new Blob([swCode], {type: 'text/javascript'});
+            navigator.serviceWorker.register(URL.createObjectURL(blob));
+        });
+    }
+    render();
+</script>
+</body>
+</html>
